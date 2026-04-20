@@ -535,6 +535,13 @@
       endif
     endif
 
+    ! nqdu 
+    call read_value_logical(USE_PRESSURE_BC, 'USE_PRESSURE_BC', ier)
+    if (ier /= 0) then
+      USE_PRESSURE_BC = .false.
+    endif
+    print*, 'USE_PRESSURE_BC = ', USE_PRESSURE_BC
+
     call read_value_logical(USE_BINARY_FOR_SEISMOGRAMS, 'USE_BINARY_FOR_SEISMOGRAMS', ier)
     if (ier /= 0) then
       some_parameters_missing_from_Par_file = .true.
@@ -1490,6 +1497,9 @@
   call bcast_all_singlel(USE_HIGHRES_FOR_MOVIES)
   call bcast_all_singlei(NTSTEP_BETWEEN_FRAMES)
   call bcast_all_singledp(HDUR_MOVIE)
+
+  !nqdu PRESSURE BC
+  call bcast_all_singlel(USE_PRESSURE_BC)
 
   call bcast_all_singlel(SAVE_MESH_FILES)
   call bcast_all_string(LOCAL_PATH)

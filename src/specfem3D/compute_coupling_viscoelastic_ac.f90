@@ -38,7 +38,7 @@
                                               SIMULATION_TYPE,backward_simulation, &
                                               potential_acoustic,potential_dot_acoustic)
 
-! returns the updated acceleration array: accel
+  ! returns the updated acceleration array: accel
 
   use constants, only: CUSTOM_REAL,NDIM,NGLLX,NGLLY,NGLLZ,NGLLSQUARE
   use pml_par, only: rmemory_coupling_el_ac_potential_dot_dot,is_CPML,spec_to_CPML,NSPEC_CPML
@@ -164,89 +164,204 @@
 
   end subroutine compute_coupling_viscoelastic_ac
 
-!
-!-------------------------------------------------------------------------------------------------
-!
+  subroutine compute_coupling_viscoelastic_free_surface(NSPEC_AB,NGLOB_AB, &
+                                              ibool, &
+                                              num_free_surface_faces, &
+                                              free_surface_ispec,free_surface_ijk, &
+                                              free_surface_normal, &
+                                              free_surface_jacobian2Dw, &
+                                              ispec_is_elastic, &
+                                              iphase, &
+                                              SIMULATION_TYPE,backward_simulation, &
+                                              free_surface_ddchi,accel)
+                                            
+    use constants, only: CUSTOM_REAL,NDIM,NGLLX,NGLLY,NGLLZ,NGLLSQUARE
 
-  subroutine compute_coupling_ocean(NSPEC_AB,NGLOB_AB, &
-                                    ibool,rmassx,rmassy,rmassz, &
-                                    rmass_ocean_load,accel, &
-                                    free_surface_normal,free_surface_ijk,free_surface_ispec, &
-                                    num_free_surface_faces)
+    implicit none
 
-! updates acceleration with ocean load term:
-! approximates ocean-bottom continuity of pressure & displacement for longer period waves (> ~20s ),
-! assuming incompressible fluid column above bathymetry ocean bottom
+    integer,intent(in) :: NSPEC_AB,NGLOB_AB,SIMULATION_TYPE
+    logical,intent(in) :: backward_simulation
 
-  use constants
+    ! displacement and pressure
+    integer,intent(in) :: num_free_surface_faces
+    real(kind=CUSTOM_REAL), dimension(NDIM,NGLOB_AB),intent(inout) :: accel
+    real(kind=CUSTOM_REAL), dimension(NGLLSQUARE,num_free_surface_faces),intent(in) :: free_surface_ddchi
 
-  implicit none
+    ! global indexing
+    integer, dimension(NGLLX,NGLLY,NGLLZ,NSPEC_AB),intent(in) :: ibool
 
-  integer,intent(in) :: NSPEC_AB,NGLOB_AB
+    ! acoustic-elastic coupling surface
+    
+    real(kind=CUSTOM_REAL),intent(in) :: free_surface_normal(NDIM,NGLLSQUARE,num_free_surface_faces)
+    real(kind=CUSTOM_REAL),intent(in) :: free_surface_jacobian2Dw(NGLLSQUARE,num_free_surface_faces)
+    integer,intent(in) :: free_surface_ijk(3,NGLLSQUARE,num_free_surface_faces)
+    integer,intent(in) :: free_surface_ispec(num_free_surface_faces)
+    logical,intent(in) :: ispec_is_elastic(NSPEC_AB)
 
-  real(kind=CUSTOM_REAL),dimension(NDIM,NGLOB_AB),intent(inout) :: accel
-  real(kind=CUSTOM_REAL),dimension(NGLOB_AB),intent(in) :: rmassx,rmassy,rmassz
-  real(kind=CUSTOM_REAL),dimension(NGLOB_AB),intent(in) :: rmass_ocean_load
 
-  integer, dimension(NGLLX,NGLLY,NGLLZ,NSPEC_AB),intent(in) :: ibool
+    ! communication overlap
+    integer,intent(in) :: iphase
 
-  ! free surface
-  integer,intent(in) :: num_free_surface_faces
-  real(kind=CUSTOM_REAL),intent(in) :: free_surface_normal(NDIM,NGLLSQUARE,num_free_surface_faces)
-  integer,intent(in) :: free_surface_ijk(3,NGLLSQUARE,num_free_surface_faces)
-  integer,intent(in) :: free_surface_ispec(num_free_surface_faces)
+    ! local parameters
+    real(kind=CUSTOM_REAL) :: pressure_x,pressure_y,pressure_z
+    real(kind=CUSTOM_REAL) :: nx,ny,nz,jacobianw
 
-! local parameters
-  real(kind=CUSTOM_REAL) :: nx,ny,nz
-  real(kind=CUSTOM_REAL) :: force_normal_comp
-  integer :: i,j,k,ispec,iglob
-  integer :: igll,iface
-  logical,dimension(NGLOB_AB) :: updated_dof_ocean_load
+    integer :: iface,igll,ispec,iglob
+    integer :: i,j,k 
 
-  !   initialize the updates
-  updated_dof_ocean_load(:) = .false.
+    ! only add these contributions in first pass
+    if (iphase /= 1) return
 
-  ! for surface elements exactly at the top of the model (ocean bottom)
-  do iface = 1,num_free_surface_faces
+    ! loops on all coupling faces
+    do iface = 1,num_free_surface_faces
 
-    ispec = free_surface_ispec(iface)
-    do igll = 1, NGLLSQUARE
-      i = free_surface_ijk(1,igll,iface)
-      j = free_surface_ijk(2,igll,iface)
-      k = free_surface_ijk(3,igll,iface)
+      ! gets corresponding spectral element
+      ! (note: can be either acoustic or elastic element, no need to specify since
+      !           no material properties are needed for this coupling term)
+      ispec = free_surface_ispec(iface)
+      if(.not. ispec_is_elastic(ispec)) cycle
 
-      ! get global point number
-      iglob = ibool(i,j,k,ispec)
+      ! loops over common GLL points
+      do igll = 1, NGLLSQUARE
+        i = free_surface_ijk(1,igll,iface)
+        j = free_surface_ijk(2,igll,iface)
+        k = free_surface_ijk(3,igll,iface)
 
-      ! only update once
-      if (.not. updated_dof_ocean_load(iglob)) then
+        ! gets global index of this common GLL point
+        ! (note: should be the same as for corresponding i',j',k',ispec_elastic or ispec_elastic )
+        iglob = ibool(i,j,k,ispec)
 
-        ! get normal
+        ! acoustic pressure on global point
+        pressure_x = - free_surface_ddchi(igll,iface)
+        pressure_y = pressure_x
+        pressure_z = pressure_x
+
+        ! adjoint wavefield case
+        if (SIMULATION_TYPE /= 1 .and. (.not. backward_simulation)) then
+          ! handles adjoint runs coupling between adjoint potential and adjoint elastic wavefield
+          ! adjoint definition: pressure^\dagger = potential^\dagger
+          pressure_x = - pressure_x
+          pressure_y = - pressure_y
+          pressure_z = - pressure_z
+        endif
+
+        ! gets associated normal on GLL point
+        ! (note convention: pointing outwards of acoustic element)
         nx = free_surface_normal(1,igll,iface)
         ny = free_surface_normal(2,igll,iface)
         nz = free_surface_normal(3,igll,iface)
 
-        ! make updated component of right-hand side
-        ! we divide by rmass() which is 1 / M
-        ! we use the total force which includes the Coriolis term above
-        force_normal_comp = accel(1,iglob)*nx / rmassx(iglob) &
-                            + accel(2,iglob)*ny / rmassy(iglob) &
-                            + accel(3,iglob)*nz / rmassz(iglob)
+        ! on free surface, the normal is pointing outwards of the elastic element, i.e. inwards of the acoustic element
+        ! so we need to flip the sign of the normal to be consistent with the convention in
+        nx = - nx
+        ny = - ny
+        nz = - nz
 
-        accel(1,iglob) = accel(1,iglob) &
-          + (rmass_ocean_load(iglob) - rmassx(iglob)) * force_normal_comp * nx
-        accel(2,iglob) = accel(2,iglob) &
-          + (rmass_ocean_load(iglob) - rmassy(iglob)) * force_normal_comp * ny
-        accel(3,iglob) = accel(3,iglob) &
-          + (rmass_ocean_load(iglob) - rmassz(iglob)) * force_normal_comp * nz
+        ! gets associated, weighted 2D jacobian
+        ! (note: should be the same for elastic and acoustic element)
+        jacobianw = free_surface_jacobian2Dw(igll,iface)
 
-        ! done with this point
-        updated_dof_ocean_load(iglob) = .true.
+        ! continuity of displacement and pressure on global point
+        !
+        ! note: Newmark time scheme together with definition of scalar potential:
+        !          pressure = - chi_dot_dot
+        !          requires that this coupling term uses the *UPDATED* pressure (chi_dot_dot), i.e.
+        !          pressure at time step [t + delta_t]
+        !          (see e.g. Chaljub & Vilotte, Nissen-Meyer thesis...)
+        !          it means you have to calculate and update the acoustic pressure first before
+        !          calculating this term...
+        accel(1,iglob) = accel(1,iglob) + jacobianw * nx * pressure_x
+        accel(2,iglob) = accel(2,iglob) + jacobianw * ny * pressure_y
+        accel(3,iglob) = accel(3,iglob) + jacobianw * nz * pressure_z
 
-      endif
+      enddo ! igll
 
-    enddo ! igll
-  enddo ! iface
+    enddo ! iface
+
+  end subroutine compute_coupling_viscoelastic_free_surface
+    !
+    !-------------------------------------------------------------------------------------------------
+    !
+
+      subroutine compute_coupling_ocean(NSPEC_AB,NGLOB_AB, &
+                                        ibool,rmassx,rmassy,rmassz, &
+                                        rmass_ocean_load,accel, &
+                                        free_surface_normal,free_surface_ijk,free_surface_ispec, &
+                                        num_free_surface_faces)
+
+    ! updates acceleration with ocean load term:
+    ! approximates ocean-bottom continuity of pressure & displacement for longer period waves (> ~20s ),
+    ! assuming incompressible fluid column above bathymetry ocean bottom
+
+      use constants
+
+      implicit none
+
+      integer,intent(in) :: NSPEC_AB,NGLOB_AB
+
+      real(kind=CUSTOM_REAL),dimension(NDIM,NGLOB_AB),intent(inout) :: accel
+      real(kind=CUSTOM_REAL),dimension(NGLOB_AB),intent(in) :: rmassx,rmassy,rmassz
+      real(kind=CUSTOM_REAL),dimension(NGLOB_AB),intent(in) :: rmass_ocean_load
+
+      integer, dimension(NGLLX,NGLLY,NGLLZ,NSPEC_AB),intent(in) :: ibool
+
+      ! free surface
+      integer,intent(in) :: num_free_surface_faces
+      real(kind=CUSTOM_REAL),intent(in) :: free_surface_normal(NDIM,NGLLSQUARE,num_free_surface_faces)
+      integer,intent(in) :: free_surface_ijk(3,NGLLSQUARE,num_free_surface_faces)
+      integer,intent(in) :: free_surface_ispec(num_free_surface_faces)
+
+    ! local parameters
+      real(kind=CUSTOM_REAL) :: nx,ny,nz
+      real(kind=CUSTOM_REAL) :: force_normal_comp
+      integer :: i,j,k,ispec,iglob
+      integer :: igll,iface
+      logical,dimension(NGLOB_AB) :: updated_dof_ocean_load
+
+      !   initialize the updates
+      updated_dof_ocean_load(:) = .false.
+
+      ! for surface elements exactly at the top of the model (ocean bottom)
+      do iface = 1,num_free_surface_faces
+
+        ispec = free_surface_ispec(iface)
+        do igll = 1, NGLLSQUARE
+          i = free_surface_ijk(1,igll,iface)
+          j = free_surface_ijk(2,igll,iface)
+          k = free_surface_ijk(3,igll,iface)
+
+          ! get global point number
+          iglob = ibool(i,j,k,ispec)
+
+          ! only update once
+          if (.not. updated_dof_ocean_load(iglob)) then
+
+            ! get normal
+            nx = free_surface_normal(1,igll,iface)
+            ny = free_surface_normal(2,igll,iface)
+            nz = free_surface_normal(3,igll,iface)
+
+            ! make updated component of right-hand side
+            ! we divide by rmass() which is 1 / M
+            ! we use the total force which includes the Coriolis term above
+            force_normal_comp = accel(1,iglob)*nx / rmassx(iglob) &
+                                + accel(2,iglob)*ny / rmassy(iglob) &
+                                + accel(3,iglob)*nz / rmassz(iglob)
+
+            accel(1,iglob) = accel(1,iglob) &
+              + (rmass_ocean_load(iglob) - rmassx(iglob)) * force_normal_comp * nx
+            accel(2,iglob) = accel(2,iglob) &
+              + (rmass_ocean_load(iglob) - rmassy(iglob)) * force_normal_comp * ny
+            accel(3,iglob) = accel(3,iglob) &
+              + (rmass_ocean_load(iglob) - rmassz(iglob)) * force_normal_comp * nz
+
+            ! done with this point
+            updated_dof_ocean_load(iglob) = .true.
+
+          endif
+
+        enddo ! igll
+      enddo ! iface
 
   end subroutine compute_coupling_ocean
 !

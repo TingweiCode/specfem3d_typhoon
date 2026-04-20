@@ -130,6 +130,14 @@
   implicit none
 
   if (.not. GPU_MODE) then
+
+    ! read free boundary fields 
+    if(USE_PRESSURE_BC) then 
+      call read_potential_on_free_interface(&
+            num_free_surface_faces,&
+            free_surface_chi,free_surface_dchi,free_surface_ddchi)
+    endif
+
     ! wavefields on CPU
     ! PML store old field
     if (PML_CONDITIONS) call update_displ_acoustic_PML(PML_potential_acoustic_old, &
@@ -151,6 +159,54 @@
   endif
 
   end subroutine update_displacement_acoustic
+
+  subroutine read_potential_on_free_interface(num_free_surface_faces,chi_bdry,dchi_bdry,ddchi_bdry)
+    use specfem_par, only: CUSTOM_REAL
+    use specfem_par,only: IO_FREE_SF,NGLLSQUARE
+    implicit none
+    integer, intent(in) :: num_free_surface_faces
+    real(kind=CUSTOM_REAL), dimension(NGLLSQUARE,num_free_surface_faces),&
+                               intent(inout) ::chi_bdry,&
+                                                dchi_bdry,&
+                                                ddchi_bdry
+
+    ! read from file
+    read(IO_FREE_SF) chi_bdry
+    read(IO_FREE_SF) dchi_bdry
+    read(IO_FREE_SF) ddchi_bdry
+  end subroutine read_potential_on_free_interface
+
+  subroutine set_potential_on_free_interface(&
+                potential_field,bdry_field)
+    use specfem_par, only: NGLOB_AB,CUSTOM_REAL,num_free_surface_faces,NGLLSQUARE
+    use specfem_par,only: free_surface_ijk,free_surface_ispec,ibool
+    use specfem_par_acoustic,only: ispec_is_acoustic
+    implicit none
+
+    real(kind=CUSTOM_REAL), dimension(NGLOB_AB), intent(inout) :: potential_field
+    real(kind=CUSTOM_REAL), dimension(NGLLSQUARE,num_free_surface_faces), intent(in) :: bdry_field
+
+    integer :: iface,igll,i,j,k, iglob,ispec
+    logical(kind=1) :: mask_nodes(NGLOB_AB)
+
+    mask_nodes(:) = .false.
+
+    do iface = 1,num_free_surface_faces
+      ispec = free_surface_ispec(iface)
+      if(.not. ispec_is_acoustic(ispec)) cycle
+      do igll = 1, NGLLSQUARE
+        i = free_surface_ijk(1,igll,iface)
+        j = free_surface_ijk(2,igll,iface)
+        k = free_surface_ijk(3,igll,iface)
+        iglob = ibool(i,j,k,ispec) 
+        if(.not. mask_nodes(iglob)) then
+          potential_field(iglob) = bdry_field(igll,iface)
+          mask_nodes(iglob) = .true.
+        endif 
+      enddo
+    enddo
+
+  end subroutine set_potential_on_free_interface
 
 !
 !--------------------------------------------------------------------------------------------------------------
@@ -206,23 +262,30 @@
   subroutine update_displ_acoustic(potential_acoustic,potential_dot_acoustic,potential_dot_dot_acoustic, &
                                    deltat,deltatover2,deltatsqover2)
 
-! updates acoustic potentials
+    ! updates acoustic potentials
 
-  use specfem_par, only: CUSTOM_REAL,NGLOB_AB
+    use specfem_par, only: CUSTOM_REAL,NGLOB_AB, USE_PRESSURE_BC
+    use specfem_par,only: num_abs_boundary_faces,free_surface_chi
 
-  implicit none
+    implicit none
 
-  real(kind=CUSTOM_REAL), dimension(NGLOB_AB),intent(inout) :: potential_acoustic, &
-                                                               potential_dot_acoustic,potential_dot_dot_acoustic
-  real(kind=CUSTOM_REAL), intent(in) :: deltat,deltatover2,deltatsqover2
+    real(kind=CUSTOM_REAL), dimension(NGLOB_AB),intent(inout) :: potential_acoustic, &
+                                                                potential_dot_acoustic,potential_dot_dot_acoustic
+    real(kind=CUSTOM_REAL), intent(in) :: deltat,deltatover2,deltatsqover2
 
-  ! Newmark time marching
-  potential_acoustic(:) = potential_acoustic(:) + &
-                          deltat * potential_dot_acoustic(:) + &
-                          deltatsqover2 * potential_dot_dot_acoustic(:)
-  potential_dot_acoustic(:) = potential_dot_acoustic(:) + &
-                              deltatover2 * potential_dot_dot_acoustic(:)
-  potential_dot_dot_acoustic(:) = 0._CUSTOM_REAL
+    ! Newmark time marching
+    potential_acoustic(:) = potential_acoustic(:) + &
+                            deltat * potential_dot_acoustic(:) + &
+                            deltatsqover2 * potential_dot_dot_acoustic(:)
+    potential_dot_acoustic(:) = potential_dot_acoustic(:) + &
+                                deltatover2 * potential_dot_dot_acoustic(:)
+    potential_dot_dot_acoustic(:) = 0._CUSTOM_REAL
+
+    ! impose Dirichlet conditions for the potential on the free surface if pressure boundary conditions are used
+    if(USE_PRESSURE_BC) then
+      call set_potential_on_free_interface( &
+                potential_acoustic,free_surface_chi)
+    endif
 
   end subroutine update_displ_acoustic
 
@@ -559,7 +622,7 @@
 
   use specfem_par, only: NGLOB_AB,deltatover2
   use specfem_par_acoustic, only: potential_dot_acoustic,potential_dot_dot_acoustic
-
+  use specfem_par,only: USE_PRESSURE_BC,free_surface_dchi
   implicit none
 
   ! corrector terms for fluid parts to update velocity
@@ -582,6 +645,11 @@
   enddo
 !$OMP ENDDO
 !$OMP END PARALLEL
+
+    ! impose Dirichlet conditions for the potential_dot on the free surface if pressure boundary conditions are used
+    if(USE_PRESSURE_BC) then
+      call set_potential_on_free_interface(potential_dot_acoustic,free_surface_dchi)
+    endif
 
   end subroutine update_potential_dot_acoustic
 

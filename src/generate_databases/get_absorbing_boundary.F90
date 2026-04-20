@@ -36,6 +36,7 @@
 ! determines absorbing boundaries/free-surface, 2D jacobians, face normals for Stacey conditions
 
   use constants, only: myrank,NGLLX,NGLLY,NGLLZ,NDIM,NGNOD2D_FOUR_CORNERS,IMAIN
+  use generate_databases_par,only: LOCAL_PATH
 
   use generate_databases_par, only: STACEY_INSTEAD_OF_FREE_SURFACE, PML_INSTEAD_OF_FREE_SURFACE, NGNOD2D, &
     STACEY_ABSORBING_CONDITIONS,PML_CONDITIONS,BOTTOM_FREE_SURFACE
@@ -114,6 +115,11 @@
   real(kind=CUSTOM_REAL),dimension(:,:),allocatable :: abs_boundary_normal_common
   real(kind=CUSTOM_REAL) :: vec_norm
   integer :: iglob,k
+
+  ! nqdu added
+  character(len=MAX_STRING_LEN) :: filename
+  real(kind=CUSTOM_REAL),allocatable ::  free_surface_coords(:,:,:)
+
 
   ! sets flag in array iboun for elements with an absorbing boundary faces
   if (COUPLE_WITH_INJECTION_TECHNIQUE .or. MESH_A_CHUNK_OF_THE_EARTH) then
@@ -927,5 +933,34 @@
     call flush_IMAIN()
   endif
 
-  end subroutine get_absorbing_boundary
+  ! write free surface coordinates out
+  allocate(free_surface_coords(3,NGLLSQUARE,num_free_surface_faces))
+  do iface = 1,num_free_surface_faces
+    ispec = free_surface_ispec(iface)
+    do igll = 1,NGLLSQUARE
+      ! gets local indices for GLL point
+      i = free_surface_ijk(1,igll,iface)
+      j = free_surface_ijk(2,igll,iface)
+      k = free_surface_ijk(3,igll,iface)
+      iglob = ibool(i,j,k,ispec)
+      free_surface_coords(1,igll,iface) = xstore_unique(iglob)
+      free_surface_coords(2,igll,iface) = ystore_unique(iglob)
+      free_surface_coords(3,igll,iface) = zstore_unique(iglob)
+    enddo
+  enddo
 
+  write(filename,'(a,i6.6,a)') trim(LOCAL_PATH)//'/proc',myrank,'_free_surface_nodes.txt'
+  open(123,file=filename,status='replace',action='write',form='formatted')
+  do iface = 1,num_free_surface_faces
+    do igll = 1,NGLLSQUARE
+      write(123,*) iface,igll, free_surface_coords(1,igll,iface),&
+                     free_surface_coords(2,igll,iface), &
+                     free_surface_coords(3,igll,iface)
+    enddo
+  enddo
+  close(123)
+
+  ! free space
+  deallocate(free_surface_coords)
+
+  end subroutine get_absorbing_boundary

@@ -216,7 +216,19 @@
                                                     SIMULATION_TYPE,backward_simulation, &
                                                     potential_acoustic,potential_dot_acoustic)
 
-
+              if(USE_PRESSURE_BC) then 
+                call compute_coupling_viscoelastic_free_surface(NSPEC_AB,NGLOB_AB, &
+                                                              ibool, &
+                                                              num_free_surface_faces, &
+                                                              free_surface_ispec,&
+                                                              free_surface_ijk, &
+                                                              free_surface_normal, &
+                                                              free_surface_jacobian2Dw, &
+                                                              ispec_is_elastic, &
+                                                              iphase, &
+                                                              SIMULATION_TYPE,backward_simulation, &
+                                                              free_surface_ddchi,accel)
+              endif
             else
               ! handles adjoint runs coupling between adjoint potential and adjoint elastic wavefield
               ! adjoint definition: pressure^\dagger = potential^\dagger

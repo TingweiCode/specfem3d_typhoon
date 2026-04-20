@@ -97,10 +97,12 @@
   if (GPU_MODE .and. PML_CONDITIONS) call exit_MPI(myrank,'PML conditions for acoustic domains not yet implemented on GPUs')
 
   ! enforces free surface (zeroes potentials at free surface)
-  call acoustic_enforce_free_surface(NGLOB_AB,potential_acoustic,potential_dot_acoustic,potential_dot_dot_acoustic, &
-                                     backward_simulation)
-  if (USE_LDDRK) then
-    call acoustic_enforce_free_surface_lddrk(NGLOB_AB_LDDRK,potential_acoustic_lddrk,potential_dot_acoustic_lddrk)
+  if(.not. USE_PRESSURE_BC) then 
+    call acoustic_enforce_free_surface(NGLOB_AB,potential_acoustic,potential_dot_acoustic,potential_dot_dot_acoustic, &
+                                      backward_simulation)
+    if (USE_LDDRK) then
+      call acoustic_enforce_free_surface_lddrk(NGLOB_AB_LDDRK,potential_acoustic_lddrk,potential_dot_acoustic_lddrk)
+    endif
   endif
 
   ! distinguishes two runs: for elements in contact with MPI interfaces, and elements within the partitions
@@ -288,6 +290,11 @@
       call pml_impose_boundary_condition_acoustic()
     endif
 
+    ! impose Dirichlet conditions for the potential_dot_dot on the free surface if pressure boundary conditions are used
+    if(USE_PRESSURE_BC) then
+      call set_potential_on_free_interface(potential_dot_dot_acoustic,free_surface_ddchi)
+    endif
+
 ! update velocity
 ! note: Newmark finite-difference time scheme with acoustic domains:
 ! (see e.g. Hughes, 1987; Chaljub et al., 2003)
@@ -317,10 +324,12 @@
   endif
 
   ! enforces free surface (zeroes potentials at free surface)
-  call acoustic_enforce_free_surface(NGLOB_AB,potential_acoustic,potential_dot_acoustic,potential_dot_dot_acoustic, &
-                                     backward_simulation)
-  if (USE_LDDRK) then
-    call acoustic_enforce_free_surface_lddrk(NGLOB_AB_LDDRK,potential_acoustic_lddrk,potential_dot_acoustic_lddrk)
+  if (.not. USE_PRESSURE_BC) then
+    call acoustic_enforce_free_surface(NGLOB_AB,potential_acoustic,potential_dot_acoustic,potential_dot_dot_acoustic, &
+                                      backward_simulation)
+    if (USE_LDDRK) then
+      call acoustic_enforce_free_surface_lddrk(NGLOB_AB_LDDRK,potential_acoustic_lddrk,potential_dot_acoustic_lddrk)
+    endif
   endif
 
   ! coupling - not used yet

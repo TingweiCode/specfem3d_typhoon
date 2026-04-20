@@ -87,6 +87,11 @@ module specfem_par
   integer, dimension(:), allocatable :: free_surface_ispec
   integer :: num_free_surface_faces
 
+  ! free surface boundary field, shape(NGLLSQUARE,num_free_surface_faces)
+  real(kind=CUSTOM_REAL), dimension(:,:), allocatable ::  &
+    free_surface_chi,free_surface_dchi,free_surface_ddchi
+  integer, parameter :: IO_FREE_SF = 14141141
+
   ! attenuation
   integer :: NSPEC_ATTENUATION_AB
   character(len=MAX_STRING_LEN) :: prname_Q

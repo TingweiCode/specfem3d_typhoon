@@ -909,31 +909,31 @@
           tempz2l = 0._CUSTOM_REAL
           tempz3l = 0._CUSTOM_REAL
 
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
-!! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
+        !! DK DK Oct 2018: we could (and should) use the Deville matrix products instead here
 
-!! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
-!! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
-!! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
-!! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
-!! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
-!! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
-!! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
-!! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
-!! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
-!! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
-!! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
+        !! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
+        !! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
+        !! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
+        !! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
+        !! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
+        !! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
+        !! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
+        !! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
+        !! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
+        !! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
+        !! DK DK Oct 2018: however this curl and div calculation routine for movies is almost never called
 
           do l = 1,NGLLX
             hp1 = hprime_xx(i,l)

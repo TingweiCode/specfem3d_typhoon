@@ -177,6 +177,14 @@
 
   ! user output
   call print_timing()
+  call synchronize_all()
+
+  ! free surface boundaries
+  if (myrank == 0) then
+    write(IMAIN,*)
+    write(IMAIN,*) '  ...setting up free surface boundaries'
+    call flush_IMAIN()
+  endif
 
   ! sets up absorbing/free surface boundaries
   call synchronize_all()

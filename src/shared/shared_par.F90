@@ -214,6 +214,9 @@ end module constants
   logical :: RECIPROCITY_AND_KH_INTEGRAL = .false.
   double precision :: INJECTION_START_TIME = -999999.d0
 
+  ! PRESSURE_BC
+  logical :: USE_PRESSURE_BC = .false.
+
   ! prescribed wavefield discontinuity on an interface
   logical :: IS_WAVEFIELD_DISCONTINUITY = .false. ! if .true. then wavefield discontinuity is turned on (default is false)
 

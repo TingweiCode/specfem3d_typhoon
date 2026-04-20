@@ -893,6 +893,13 @@
     call bcast_all_cr_for_database(free_surface_normal(1,1,1), size(free_surface_normal,kind=4))
   endif
 
+  !nqdu
+  ! get bdry info 
+  if(USE_PRESSURE_BC) then 
+    if(myrank == 0) print *,'Getting free surface boundary info for pressure BCs'
+    call get_free_surface_bdry_info()
+  endif
+
   ! acoustic-elastic coupling surface
   if (I_should_read_the_database) read(IIN) num_coupling_ac_el_faces
   call bcast_all_i_for_database(num_coupling_ac_el_faces, 1)
@@ -2105,4 +2112,47 @@ contains
   endif
 
   end subroutine read_mesh_databases_adjoint
+
+  subroutine get_free_surface_bdry_info()
+    use specfem_par,only: free_surface_chi,free_surface_dchi, &
+                          free_surface_ddchi,myrank,LOCAL_PATH,&
+                          IO_FREE_SF,MAX_STRING_LEN
+    use specfem_par,only: num_free_surface_faces  
+    use constants,only: NGLLSQUARE
+    implicit none
+
+    character(len=MAX_STRING_LEN) :: field_name
+    integer ::ier,icount 
+    write(field_name,'(a,i6.6,a)') trim(LOCAL_PATH)//'/proc', myrank, '_free_surface_nodes.txt'
+
+    open(unit=10, file=trim(field_name), status='old', action='read', iostat=ier)
+
+    ! count how many lines in the file
+    icount = 0
+    do
+      read(10, *, iostat=ier)
+      if (ier /= 0) exit
+      icount = icount + 1
+    end do
+    close(10)
+
+    ! check size
+    if(icount /= num_free_surface_faces * NGLLSQUARE) then
+      call exit_MPI_without_rank('Error: number of free surface nodes in file does not match num_free_surface_faces*NGLLSQUARE')
+    end if
+
+    ! allocate arrays
+    allocate(free_surface_chi(NGLLSQUARE,num_free_surface_faces),&
+             free_surface_dchi(NGLLSQUARE,num_free_surface_faces),&
+             free_surface_ddchi(NGLLSQUARE,num_free_surface_faces),stat=ier)
+    if (ier /= 0) call exit_MPI_without_rank('error allocating array 1731')
+    if (ier /= 0) stop 'Error allocating array free_surface_nodes'
+
+    ! open field files for future usage
+    write(field_name,'(a,i6.6,a)') trim(LOCAL_PATH)//'/proc', myrank, '_free_surface_fields.bin'
+    open(unit=IO_FREE_SF, file=trim(field_name), status='old',form='unformatted', iostat=ier)
+    if(ier /= 0) then
+      call exit_MPI_without_rank('error opening free surface fields file')
+    end if
+  end subroutine  get_free_surface_bdry_info
 
