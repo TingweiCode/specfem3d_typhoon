@@ -68,6 +68,13 @@
   ! time marching
   !
   ! only updates forward fields
+
+  ! read free boundary fields 
+  if(USE_PRESSURE_BC) then 
+    call read_potential_on_free_interface(&
+          num_free_surface_faces,&
+          free_surface_chi,free_surface_dchi,free_surface_ddchi)
+  endif
   !
   ! acoustic domain
   if (ACOUSTIC_SIMULATION) call update_displacement_acoustic()
@@ -130,13 +137,6 @@
   implicit none
 
   if (.not. GPU_MODE) then
-
-    ! read free boundary fields 
-    if(USE_PRESSURE_BC) then 
-      call read_potential_on_free_interface(&
-            num_free_surface_faces,&
-            free_surface_chi,free_surface_dchi,free_surface_ddchi)
-    endif
 
     ! wavefields on CPU
     ! PML store old field
@@ -265,7 +265,7 @@
     ! updates acoustic potentials
 
     use specfem_par, only: CUSTOM_REAL,NGLOB_AB, USE_PRESSURE_BC
-    use specfem_par,only: num_abs_boundary_faces,free_surface_chi
+    use specfem_par,only: free_surface_chi
 
     implicit none
 
