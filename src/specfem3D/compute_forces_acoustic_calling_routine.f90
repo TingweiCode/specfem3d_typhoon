@@ -274,42 +274,37 @@
     ! on CPU
     potential_dot_dot_acoustic(:) = potential_dot_dot_acoustic(:) * rmass_acoustic(:)
 
-! The outer boundary condition to use for PML elements in fluid layers is Neumann for the potential
-! because we need Dirichlet conditions for the displacement vector, which means Neumann for the potential.
-! Thus, there is nothing to enforce explicitly here.
-! There is something to enforce explicitly only in the case of elastic elements, for which a Dirichlet
-! condition is needed for the displacement vector, which is the vectorial unknown for these elements.
+    ! The outer boundary condition to use for PML elements in fluid layers is Neumann for the potential
+    ! because we need Dirichlet conditions for the displacement vector, which means Neumann for the potential.
+    ! Thus, there is nothing to enforce explicitly here.
+    ! There is something to enforce explicitly only in the case of elastic elements, for which a Dirichlet
+    ! condition is needed for the displacement vector, which is the vectorial unknown for these elements.
 
-!! DK DK this paragraph seems to be from Zhinan or from ChangHua:
-! However, enforcing explicitly potential_dot_dot_acoustic, potential_dot_acoustic, potential_acoustic
-! to be zero on outer boundary of PML help to improve the accuracy of absorbing low-frequency wave components
-! in case of long-time simulation.
+    !! DK DK this paragraph seems to be from Zhinan or from ChangHua:
+    ! However, enforcing explicitly potential_dot_dot_acoustic, potential_dot_acoustic, potential_acoustic
+    ! to be zero on outer boundary of PML help to improve the accuracy of absorbing low-frequency wave components
+    ! in case of long-time simulation.
 
-! impose Dirichlet conditions for the potential (i.e. Neumann for displacement) on the outer edges of the C-PML layers
+    ! impose Dirichlet conditions for the potential (i.e. Neumann for displacement) on the outer edges of the C-PML layers
     if (PML_CONDITIONS .and. SET_NEUMANN_RATHER_THAN_DIRICHLET_FOR_FLUID_PMLs) then
       call pml_impose_boundary_condition_acoustic()
     endif
 
-    ! impose Dirichlet conditions for the potential_dot_dot on the free surface if pressure boundary conditions are used
-    if(USE_PRESSURE_BC) then
-      call set_potential_on_free_interface(potential_dot_dot_acoustic,free_surface_ddchi)
-    endif
-
-! update velocity
-! note: Newmark finite-difference time scheme with acoustic domains:
-! (see e.g. Hughes, 1987; Chaljub et al., 2003)
-!
-! chi(t+delta_t) = chi(t) + delta_t chi_dot(t) + 1/2 delta_t**2 chi_dot_dot(t)
-! chi_dot(t+delta_t) = chi_dot(t) + 1/2 delta_t chi_dot_dot(t) + 1/2 DELTA_T CHI_DOT_DOT( T + DELTA_T )
-! chi_dot_dot(t+delta_t) = 1/M_acoustic( -K_acoustic chi(t+delta) + B_acoustic u(t+delta_t) + f(t+delta_t) )
-!
-! where
-!   chi, chi_dot, chi_dot_dot are acoustic (fluid) potentials ( dotted with respect to time)
-!   M is mass matrix, K stiffness matrix and B boundary term
-!   f denotes a source term
-!
-! corrector:
-!   updates the chi_dot term which requires chi_dot_dot(t+delta)
+    ! update velocity
+    ! note: Newmark finite-difference time scheme with acoustic domains:
+    ! (see e.g. Hughes, 1987; Chaljub et al., 2003)
+    !
+    ! chi(t+delta_t) = chi(t) + delta_t chi_dot(t) + 1/2 delta_t**2 chi_dot_dot(t)
+    ! chi_dot(t+delta_t) = chi_dot(t) + 1/2 delta_t chi_dot_dot(t) + 1/2 DELTA_T CHI_DOT_DOT( T + DELTA_T )
+    ! chi_dot_dot(t+delta_t) = 1/M_acoustic( -K_acoustic chi(t+delta) + B_acoustic u(t+delta_t) + f(t+delta_t) )
+    !
+    ! where
+    !   chi, chi_dot, chi_dot_dot are acoustic (fluid) potentials ( dotted with respect to time)
+    !   M is mass matrix, K stiffness matrix and B boundary term
+    !   f denotes a source term
+    !
+    ! corrector:
+    !   updates the chi_dot term which requires chi_dot_dot(t+delta)
     ! corrector
     if (USE_LDDRK) then
       ! LDDRK
@@ -321,6 +316,11 @@
   else
     ! on GPU
     call kernel_3_acoustic_cuda(Mesh_pointer,deltatover2,b_deltatover2,1) ! 1 == forward
+  endif
+
+  if(USE_PRESSURE_BC) then
+    call set_dirichlet_potential_on_free_surface(2) != ddchi 
+    call set_dirichlet_potential_on_free_surface(1) != dchi
   endif
 
   ! enforces free surface (zeroes potentials at free surface)

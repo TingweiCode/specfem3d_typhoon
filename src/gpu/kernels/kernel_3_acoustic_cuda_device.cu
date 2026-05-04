@@ -80,4 +80,28 @@ __global__ void kernel_3_acoustic_single_cuda_device(field* potential_dot_acoust
   }
 }
 
+__global__ void kernel_3_set_dirichlet_potential_on_free_surface_cuda_device(field* potential_acoustic,
+                                                        field* free_surface_chi,
+                                                        int num_free_surface_faces,
+                                                        const int *free_surface_ijk,
+                                                       const int *free_surface_ispec,
+                                                       const int *ibool,
+                                                      const int *ispec_is_acoustic) {
 
+  int id = threadIdx.x + (blockIdx.x + blockIdx.y*gridDim.x)*blockDim.x;
+
+  if (id < num_free_surface_faces*NGLL2) {
+    int face_id = id / NGLL2;
+    int igll2 = id % NGLL2;
+
+    int ispec = free_surface_ispec[face_id] - 1; // convert to 0-based indexing
+    if(ispec_is_acoustic[ispec] == 1) {
+      int i = free_surface_ijk[INDEX3(NDIM,NGLL2,0,igll2,face_id)] - 1;
+      int j = free_surface_ijk[INDEX3(NDIM,NGLL2,1,igll2,face_id)] - 1;
+      int k = free_surface_ijk[INDEX3(NDIM,NGLL2,2,igll2,face_id)] - 1;
+      int iglob = ibool[INDEX4_PADDED(NGLLX,NGLLX,NGLLX,i,j,k,ispec)] - 1;
+
+      atomicExch(&potential_acoustic[iglob], free_surface_chi[id]);
+    }
+  }
+}

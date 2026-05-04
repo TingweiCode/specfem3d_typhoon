@@ -1834,6 +1834,31 @@ void FC_FUNC_(prepare_lts_mass_boundary_fields_device,
   GPU_ERROR_CHECKING("prepare_lts_mass_boundary_fields_device");
 }
 
+extern EXTERN_LANG
+void FC_FUNC_(prepare_pressure_bc_device,
+              PREPARE_PRESSURE_BC_DEVICE)(long* Mesh_pointer,
+              int* num_free_surface_faces,
+              int* h_free_surface_ispec,
+              int* h_free_surface_ijk,
+              realw* h_free_surface_normal,
+              realw* h_free_surface_jacobian2Dw) {
+  TRACE("prepare_pressure_bc_device");
+  Mesh* mp = (Mesh*)(*Mesh_pointer); // get Mesh from fortran integer wrapper
+  mp->num_free_surface_faces = *num_free_surface_faces;
+  gpuMalloc_realw((void**)&(mp->d_free_surface_chi),mp->num_free_surface_faces * NGLL2);
+  gpuMalloc_realw((void**)&(mp->d_free_surface_dchi),mp->num_free_surface_faces * NGLL2);
+  gpuMalloc_realw((void**)&(mp->d_free_surface_ddchi),mp->num_free_surface_faces * NGLL2);
+  mp->USE_PRESSURE_BC = true;
+
+  
+  gpuCreateCopy_todevice_int((void**)&mp->d_free_surface_ispec,h_free_surface_ispec,mp->num_free_surface_faces);
+  gpuCreateCopy_todevice_int((void**)&mp->d_free_surface_ijk,h_free_surface_ijk,mp->num_free_surface_faces*NDIM*NGLL2);
+  gpuCreateCopy_todevice_realw((void**)&mp->d_free_surface_normal,h_free_surface_normal,NDIM * mp->num_free_surface_faces*NGLL2);
+  gpuCreateCopy_todevice_realw((void**)&mp->d_free_surface_jacobian2Dw,h_free_surface_jacobian2Dw,mp->num_free_surface_faces*NGLL2);
+
+  GPU_ERROR_CHECKING("prepare_pressure_bc_device");
+}
+
 /* ----------------------------------------------------------------------------------------------- */
 
 extern EXTERN_LANG
@@ -2281,6 +2306,18 @@ TRACE("prepare_cleanup_device");
         gpuFree(mp->d_lts_interface_p_refine_boundary);
       }
     }
+  }
+
+  if(mp->USE_PRESSURE_BC){
+    gpuFree(mp->d_free_surface_chi);
+    gpuFree(mp->d_free_surface_dchi);
+    gpuFree(mp->d_free_surface_ddchi);
+    if(*NOISE_TOMOGRAPHY == 0){
+      gpuFree(mp->d_free_surface_ispec);
+      gpuFree(mp->d_free_surface_ijk);
+    }
+    gpuFree(mp->d_free_surface_normal);
+    gpuFree(mp->d_free_surface_jacobian2Dw);
   }
 
   // releases previous contexts

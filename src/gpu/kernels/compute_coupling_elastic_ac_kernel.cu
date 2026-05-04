@@ -126,3 +126,51 @@ __global__ void compute_coupling_elastic_ac_kernel(field* potential_dot_dot_acou
 }
 
 
+__global__ void
+compute_coupling_viscoelastic_free_surface_kernel(
+  const int *ibool,
+  int num_free_surface_faces,
+  const int *free_surface_ispec,
+  const int *free_surface_ijk,
+  const realw *free_surface_normal,
+  const realw *free_surface_jacobian2Dw,
+  const int *ispec_is_elastic,
+  const realw *free_surface_ddchi,
+  realw *accel,
+  int simulation_type,
+  int backward_simulation)
+{
+  int igll = threadIdx.x;
+  int iface = blockIdx.x + gridDim.x * blockIdx.y;
+
+  #define INDEX3(xsize,ysize,x,y,z) x + xsize*(y + ysize*z)
+
+  if (iface < num_free_surface_faces) {
+    int ispec = free_surface_ispec[iface] - 1;
+    if (!ispec_is_elastic[ispec]) return;
+
+    int i = free_surface_ijk[INDEX3(NDIM,NGLL2,0,igll,iface)] - 1;
+    int j = free_surface_ijk[INDEX3(NDIM,NGLL2,1,igll,iface)] - 1;
+    int k = free_surface_ijk[INDEX3(NDIM,NGLL2,2,igll,iface)] - 1;
+
+    int iglob = ibool[INDEX4_PADDED(NGLLX,NGLLX,NGLLX,i,j,k,ispec)] - 1;
+
+    realw pressure = - free_surface_ddchi[INDEX2(NGLL2,igll,iface)];
+    if (simulation_type != 1 && backward_simulation == 0) {
+      pressure = - pressure;
+    }
+
+    // Free-surface normals point outward from the elastic element, so flip them
+    // to match the acoustic-to-elastic coupling sign convention used above.
+    realw nx = - free_surface_normal[INDEX3(NDIM,NGLL2,0,igll,iface)];
+    realw ny = - free_surface_normal[INDEX3(NDIM,NGLL2,1,igll,iface)];
+    realw nz = - free_surface_normal[INDEX3(NDIM,NGLL2,2,igll,iface)];
+
+    realw jacobianw = free_surface_jacobian2Dw[INDEX2(NGLL2,igll,iface)];
+
+    atomicAdd(&accel[iglob*3],   + jacobianw * nx * pressure);
+    atomicAdd(&accel[iglob*3+1], + jacobianw * ny * pressure);
+    atomicAdd(&accel[iglob*3+2], + jacobianw * nz * pressure);
+  }
+}
+

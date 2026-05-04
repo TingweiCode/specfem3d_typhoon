@@ -805,6 +805,27 @@ void FC_FUNC_(transfer_kernels_hess_ac_tohost,
   gpuMemcpy_tohost_realw(h_hess_kappa_ac_kl,mp->d_hess_kappa_ac_kl,NGLL3*(*NSPEC_AB));
 }
 
+
+extern EXTERN_LANG
+void FC_FUNC_(transfer_free_surface_potential,
+              TRANSFER_FREE_SURFACE_POTENTIAL)(long* Mesh_pointer,
+                 realw* h_free_surface_chi,
+                 realw* h_free_surface_dchi,
+                 realw* h_free_surface_ddchi) {
+
+  TRACE("transfer_free_surface_potential");
+
+  //get mesh pointer out of fortran integer container
+  Mesh* mp = (Mesh*)(*Mesh_pointer);
+
+  int num_free_surface_faces = mp->num_free_surface_faces;
+  
+  gpuMemcpy_todevice_realw(mp->d_free_surface_chi, h_free_surface_chi, NGLL2*(num_free_surface_faces));
+  gpuMemcpy_todevice_realw(mp->d_free_surface_dchi, h_free_surface_dchi, NGLL2*(num_free_surface_faces));
+  gpuMemcpy_todevice_realw(mp->d_free_surface_ddchi, h_free_surface_ddchi, NGLL2*(num_free_surface_faces));
+}
+
+
 // unused...
 
 /* ----------------------------------------------------------------------------------------------- */

@@ -314,3 +314,58 @@ void FC_FUNC_(compute_coupling_ocean_cuda,
   GPU_ERROR_CHECKING("compute_coupling_ocean_cuda");
 }
 
+extern EXTERN_LANG
+void FC_FUNC_(compute_coupling_viscoelastic_free_surface_gpu,
+              COMPUTE_COUPLING_VISCOELASTIC_FREE_SURFACE_GPU)
+              (long* Mesh_pointer)
+{
+  TRACE("compute_coupling_viscoelastic_free_surface_gpu");
+
+  Mesh* mp = (Mesh*)(*Mesh_pointer); //get mesh pointer out of fortran integer container
+
+  // checks if anything to do
+  if (mp->num_free_surface_faces == 0) return;
+
+  // block sizes: exact blocksize to match NGLLSQUARE
+  int blocksize = NGLL2;
+
+  int num_blocks_x, num_blocks_y;
+  get_blocks_xy(mp->num_free_surface_faces,&num_blocks_x,&num_blocks_y);
+
+  dim3 grid(num_blocks_x,num_blocks_y);
+  dim3 threads(blocksize,1,1);
+
+#ifdef USE_CUDA
+  if (run_cuda){
+    compute_coupling_viscoelastic_free_surface_kernel<<<grid,threads,0,mp->compute_stream>>>(mp->d_ibool,
+                                                                                              mp->num_free_surface_faces,
+                                                                                              mp->d_free_surface_ispec,
+                                                                                              mp->d_free_surface_ijk,
+                                                                                              mp->d_free_surface_normal,
+                                                                                              mp->d_free_surface_jacobian2Dw,
+                                                                                              mp->d_ispec_is_elastic,
+                                                                                              mp->d_free_surface_ddchi,
+                                                                                              mp->d_accel,
+                                                                                              mp->simulation_type,
+                                                                                              0);
+  }
+#endif
+#ifdef USE_HIP
+  if (run_hip){
+    hipLaunchKernelGGL(compute_coupling_viscoelastic_free_surface_kernel, dim3(grid), dim3(threads), 0, mp->compute_stream,
+                       mp->d_ibool,
+                       mp->num_free_surface_faces,
+                       mp->d_free_surface_ispec,
+                       mp->d_free_surface_ijk,
+                       mp->d_free_surface_normal,
+                       mp->d_free_surface_jacobian2Dw,
+                       mp->d_ispec_is_elastic,
+                       mp->d_free_surface_ddchi,
+                       mp->d_accel,
+                       mp->simulation_type,
+                       0);
+  }
+#endif
+
+  GPU_ERROR_CHECKING("compute_coupling_viscoelastic_free_surface_gpu");
+}

@@ -1178,3 +1178,25 @@ void FC_FUNC_(compute_seismograms_cuda,
                                         int* ELASTIC_SIMULATION,
                                         int* USE_TRICK_FOR_BETTER_PRESSURE) {}
 
+
+void FC_FUNC_(prepare_pressure_bc_device,
+              PREPARE_PRESSURE_BC_DEVICE)(long* Mesh_pointer,
+              int* num_free_surface_faces,
+              int* h_free_surface_ispec,
+              int* h_free_surface_ijk,
+              realw* h_free_surface_normal,
+              realw* h_free_surface_jacobian2Dw) {}
+
+void FC_FUNC_(transfer_free_surface_potential,
+              TRANSFER_FREE_SURFACE_POTENTIAL)(long* Mesh_pointer,
+                 realw* h_bdry_chi,
+                 realw* h_bdry_dchi,
+                 realw* h_bdry_ddchi) {}
+
+void FC_FUNC_(
+set_dirichlet_potential_on_free_surface_gpu,
+SET_DIRICHLET_POTENTIAL_ON_FREE_SURFACE_GPU)(long* Mesh_pointer,
+                                               int* CHI_DCHI_DDCHI) {}
+void FC_FUNC_(compute_coupling_viscoelastic_free_surface_gpu,
+              COMPUTE_COUPLING_VISCOELASTIC_FREE_SURFACE_GPU)
+              (long* Mesh_pointer) {}

@@ -74,6 +74,11 @@
     call read_potential_on_free_interface(&
           num_free_surface_faces,&
           free_surface_chi,free_surface_dchi,free_surface_ddchi)
+
+    if (GPU_MODE) then
+      call transfer_free_surface_potential(Mesh_pointer, &
+          free_surface_chi,free_surface_dchi,free_surface_ddchi)
+    endif
   endif
   !
   ! acoustic domain
@@ -158,6 +163,8 @@
     call update_displacement_ac_cuda(Mesh_pointer,deltat,deltatover2,deltatsqover2,1) ! 1 == forward fields
   endif
 
+  if(USE_PRESSURE_BC) call set_dirichlet_potential_on_free_surface(0) ! 0 == chi
+
   end subroutine update_displacement_acoustic
 
   subroutine read_potential_on_free_interface(num_free_surface_faces,chi_bdry,dchi_bdry,ddchi_bdry)
@@ -175,6 +182,33 @@
     read(IO_FREE_SF) dchi_bdry
     read(IO_FREE_SF) ddchi_bdry
   end subroutine read_potential_on_free_interface
+
+  subroutine set_dirichlet_potential_on_free_surface(iorder)
+    !> impose Dirichlet conditions for the potential on the free surface if pressure boundary conditions are used
+    !> iorder: 0,1,2 for chi, dchi, ddchi respectively
+    use specfem_par,only: Mesh_pointer,myrank
+    use specfem_par,only: free_surface_chi,free_surface_dchi,free_surface_ddchi,GPU_MODE
+    use specfem_par_acoustic,only: potential_acoustic,potential_dot_acoustic,potential_dot_dot_acoustic
+    implicit none
+    
+    integer, intent(in) :: iorder
+
+    if(.not. GPU_MODE) then
+      ! wavefields on CPU
+      if(iorder == 0) then
+        call set_potential_on_free_interface(potential_acoustic,free_surface_chi)
+      else if(iorder == 1) then
+        call set_potential_on_free_interface(potential_dot_acoustic,free_surface_dchi)
+      else if(iorder == 2) then
+        call set_potential_on_free_interface(potential_dot_dot_acoustic,free_surface_ddchi)
+      else
+        call exit_MPI(myrank,'invalid iorder in set_dirichlet_potential_on_free_surface subroutine')
+      endif
+    else 
+      call set_dirichlet_potential_on_free_surface_gpu(Mesh_pointer,iorder)
+    endif
+
+  end subroutine set_dirichlet_potential_on_free_surface
 
   subroutine set_potential_on_free_interface(&
                 potential_field,bdry_field)
@@ -264,8 +298,7 @@
 
     ! updates acoustic potentials
 
-    use specfem_par, only: CUSTOM_REAL,NGLOB_AB, USE_PRESSURE_BC
-    use specfem_par,only: free_surface_chi
+    use specfem_par, only: CUSTOM_REAL,NGLOB_AB
 
     implicit none
 
@@ -280,12 +313,6 @@
     potential_dot_acoustic(:) = potential_dot_acoustic(:) + &
                                 deltatover2 * potential_dot_dot_acoustic(:)
     potential_dot_dot_acoustic(:) = 0._CUSTOM_REAL
-
-    ! impose Dirichlet conditions for the potential on the free surface if pressure boundary conditions are used
-    if(USE_PRESSURE_BC) then
-      call set_potential_on_free_interface( &
-                potential_acoustic,free_surface_chi)
-    endif
 
   end subroutine update_displ_acoustic
 
@@ -622,7 +649,6 @@
 
   use specfem_par, only: NGLOB_AB,deltatover2
   use specfem_par_acoustic, only: potential_dot_acoustic,potential_dot_dot_acoustic
-  use specfem_par,only: USE_PRESSURE_BC,free_surface_dchi
   implicit none
 
   ! corrector terms for fluid parts to update velocity
@@ -645,11 +671,6 @@
   enddo
 !$OMP ENDDO
 !$OMP END PARALLEL
-
-    ! impose Dirichlet conditions for the potential_dot on the free surface if pressure boundary conditions are used
-    if(USE_PRESSURE_BC) then
-      call set_potential_on_free_interface(potential_dot_acoustic,free_surface_dchi)
-    endif
 
   end subroutine update_potential_dot_acoustic
 

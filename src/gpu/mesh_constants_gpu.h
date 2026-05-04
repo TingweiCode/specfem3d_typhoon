@@ -854,6 +854,10 @@ typedef struct mesh_ {
   int* d_lts_interface_p_refine_boundary;
   int lts_max_nibool_interfaces_boundary;
 
+  // free surface fields
+  int USE_PRESSURE_BC = false;
+  realw *d_free_surface_chi, *d_free_surface_dchi,*d_free_surface_ddchi; // shape(num_free_surface_faces,NGLL2)
+
 } Mesh;
 
 /* ----------------------------------------------------------------------------------------------- */

@@ -197,6 +197,18 @@ __global__ void compute_coupling_elastic_ac_kernel(field* potential_dot_dot_acou
                                                     int simulation_type,
                                                     int backward_simulation) ;
 
+__global__ void compute_coupling_viscoelastic_free_surface_kernel(const int *ibool,
+                                                                  int num_free_surface_faces,
+                                                                  const int *free_surface_ispec,
+                                                                  const int *free_surface_ijk,
+                                                                  const realw *free_surface_normal,
+                                                                  const realw *free_surface_jacobian2Dw,
+                                                                  const int *ispec_is_elastic,
+                                                                  const realw *free_surface_ddchi,
+                                                                  realw *accel,
+                                                                  int simulation_type,
+                                                                  int backward_simulation) ;
+
 
 //
 // src/gpu/kernels/compute_coupling_ocean_cuda_kernel.cu
@@ -1373,6 +1385,15 @@ __global__ void add_traction_discontinuity_kernel(realw_const_p traction_wd,
                                                   realw_const_p face_jacobian2Dw_wd,
                                                   const int* d_ibool,
                                                   const int size, realw* accel) ;
+
+__global__ void kernel_3_set_dirichlet_potential_on_free_surface_cuda_device(
+    field* potential_acoustic,
+    field* free_surface_chi,
+    int num_free_surface_faces,
+    const int *free_surface_ijk,
+    const int *free_surface_ispec,
+    const int *ibool,
+    const int *ispec_is_acoustic) ;                                            
 
 #endif  // KERNEL_PROTO_CUDA_H
 

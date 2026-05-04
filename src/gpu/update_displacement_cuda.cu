@@ -549,3 +549,44 @@ void FC_FUNC_(kernel_3_acoustic_cuda,
   GPU_ERROR_CHECKING("after kernel 3 ");
 }
 
+extern EXTERN_LANG
+void FC_FUNC_(
+set_dirichlet_potential_on_free_surface_gpu,
+SET_DIRICHLET_POTENTIAL_ON_FREE_SURFACE_GPU)(long* Mesh_pointer,
+                                               int* CHI_DCHI_DDCHI) {
+  TRACE("set_dirichlet_potential_on_free_surface_gpu");
+
+  Mesh* mp = (Mesh*)(*Mesh_pointer); // get Mesh from fortran integer wrapper
+
+  int iorder = *CHI_DCHI_DDCHI;
+
+  // safety check
+  if (iorder != 1 && iorder != 2 && iorder != 0) {
+    exit_on_error("Error invalid CHI_DCHI_DDCHI in set_dirichlet_potential_on_free_surface_gpu() routine");
+  }
+
+  // sets gpu arrays
+  realw* potential;
+  realw *free_surface_field;
+  if(iorder == 0) {
+    potential = mp->d_potential_acoustic;
+    free_surface_field = mp->d_free_surface_chi;
+  } else if (iorder == 1) {
+    potential = mp->d_potential_dot_acoustic;
+    free_surface_field = mp->d_free_surface_dchi;
+  } else {
+    potential = mp->d_potential_dot_dot_acoustic;
+    free_surface_field = mp->d_free_surface_ddchi;
+  }
+
+  dim3 grid(mp->num_free_surface_faces,1,1);
+  dim3 threads(NGLL2,1,1);
+  kernel_3_set_dirichlet_potential_on_free_surface_cuda_device<<<grid,threads,0,mp->compute_stream>>>(potential,
+                                                        free_surface_field,
+                                                        mp->num_free_surface_faces,
+                                                        mp->d_free_surface_ijk,
+                                                        mp->d_free_surface_ispec,
+                                                        mp->d_ibool,
+                                                        mp->d_ispec_is_acoustic);
+
+}

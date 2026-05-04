@@ -293,6 +293,17 @@
     call prepare_wavefield_discontinuity_GPU()
   endif
 
+  if(USE_PRESSURE_BC) then
+    ! user output
+    if (myrank == 0) then
+      write(IMAIN,*) "  loading pressure boundary condition arrays"
+      call flush_IMAIN()
+    endif
+    call prepare_pressure_bc_device(Mesh_pointer,num_free_surface_faces,&
+                                  free_surface_ispec,free_surface_ijk,&
+                                  free_surface_normal,free_surface_jacobian2Dw)
+  endif
+
   ! LTS preparation for GPU
   if (LTS_MODE) call lts_prepare_gpu()
 
