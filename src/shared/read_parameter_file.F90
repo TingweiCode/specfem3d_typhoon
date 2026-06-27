@@ -194,6 +194,15 @@
       write(*,*)
     endif
 
+    call read_value_logical(USE_CUBE2SPH_SYS, 'USE_CUBE2SPH_SYS', ier)
+    if(ier /= 0) then
+      some_parameters_missing_from_Par_file = .true.
+      write(*,'(a)') 'USE_CUBE2SPH_SYS                 = .false.'
+      write(*,*)
+      USE_CUBE2SPH_SYS = .false.
+    endif
+    print*, 'USE_CUBE2SPH_SYS = ', USE_CUBE2SPH_SYS
+
     call read_value_logical(TOPOGRAPHY, 'TOPOGRAPHY', ier)
     if (ier /= 0) then
       some_parameters_missing_from_Par_file = .true.

@@ -260,6 +260,7 @@
     MINIMUM_THICKNESS_3D_OCEANS,RHO_APPROXIMATE_OCEAN_LOAD
 
   use shared_parameters, only: TOPOGRAPHY
+  use shared_parameters, only: USE_CUBE2SPH_SYS
 
   implicit none
 
@@ -288,6 +289,10 @@
   integer :: ix_oceans,iy_oceans,iz_oceans,ispec_oceans,ispec2D,igll,iglob
 
   real(kind=CUSTOM_REAL) :: xloc,yloc,loc_elevation
+
+  ! nqdu
+  double precision :: radius 
+  double precision, parameter :: EARTH_RADIUS = 6371000.0d0
 
   ! contribution of the oceans for surface elements exactly at ocean bottom
   rmass_ocean_load(:) = 0._CUSTOM_REAL
@@ -323,8 +328,13 @@
         else
 
           ! takes elevation from z-coordinate of mesh point
-          elevation = zstore_unique(iglob)
-
+          if(.NOT. USE_CUBE2SPH_SYS) then
+            elevation = zstore_unique(iglob)
+          else
+            ! takes elevation from spherical coordinates
+            radius = sqrt(dble(xstore_unique(iglob))**2 + dble(ystore_unique(iglob))**2 + dble(zstore_unique(iglob))**2)
+            elevation = radius - EARTH_RADIUS
+          endif
         endif
 
         ! suppress positive elevation, which means no oceans
@@ -345,6 +355,7 @@
   enddo ! num_free_surface_faces
 
   end subroutine define_mass_matrices_ocean_load
+
 
 !
 !-------------------------------------------------------------------------------------------------
